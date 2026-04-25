@@ -290,30 +290,90 @@ function hamKiemTraDuLieuNguoiDung(duLieu) {
     };
 }
 
-/*
- * Hàm kiểm tra nội dung tin nhắn.
- */
 function hamKiemTraTinNhan(noiDung) {
     const noiDungTinNhan = hamChuanHoaChuoi(noiDung);
 
     if (noiDungTinNhan.length < 1) {
         return {
             hop_le: false,
-            thong_bao: "Tin nhắn không được để trống."
+            thong_bao: "Tin nhắn không được để trống.",
+            can_canh_bao_an_toan: false
         };
     }
 
     if (noiDungTinNhan.length > 500) {
         return {
             hop_le: false,
-            thong_bao: "Tin nhắn nên dưới 500 ký tự."
+            thong_bao: "Tin nhắn nên dưới 500 ký tự.",
+            can_canh_bao_an_toan: false
         };
+    }
+
+    const noiDungThuong = noiDungTinNhan.toLowerCase();
+
+    /*
+     * Nhóm từ khóa nguy cơ cao.
+     * Không đưa nội dung này vào phòng chat công khai.
+     */
+    const tuKhoaNguyCoCao = [
+        "muốn chết",
+        "tự tử",
+        "tự làm hại",
+        "không muốn sống",
+        "kết thúc cuộc đời",
+        "làm hại bản thân"
+    ];
+
+    for (const tuKhoa of tuKhoaNguyCoCao) {
+        if (noiDungThuong.includes(tuKhoa)) {
+            return {
+                hop_le: false,
+                thong_bao: "Tin nhắn có dấu hiệu nguy cơ cao. Hãy dùng SOS hoặc liên hệ người tin cậy ngay.",
+                can_canh_bao_an_toan: true
+            };
+        }
+    }
+
+    /*
+     * Nhóm từ khóa toxic cơ bản.
+     * Bản demo dùng từ khóa; bản thật nên dùng AI moderation ở backend.
+     */
+    const tuKhoaDocHai = [
+        "đồ ngu",
+        "cút",
+        "chết đi",
+        "biến đi",
+        "đánh nhau",
+        "giết",
+        "dm",
+        "đm",
+        "vcl",
+        "vl"
+    ];
+
+    for (const tuKhoa of tuKhoaDocHai) {
+        if (noiDungThuong.includes(tuKhoa)) {
+            return {
+                hop_le: false,
+                thong_bao: "Tin nhắn có nội dung gây tổn thương nên chưa được gửi.",
+                can_canh_bao_an_toan: false
+            };
+        }
     }
 
     return {
         hop_le: true,
-        noi_dung: noiDungTinNhan
+        noi_dung: noiDungTinNhan,
+        can_canh_bao_an_toan: false
     };
+}
+
+function hamGuiCanhBaoAnToanNeuCan(socket, ketQuaKiemTra) {
+    if (ketQuaKiemTra.can_canh_bao_an_toan) {
+        socket.emit("canh_bao_an_toan_chat", {
+            thong_bao: "Nếu bạn đang không an toàn, hãy mở SOS hoặc gọi người tin cậy ngay. Chat cộng đồng không thay thế hỗ trợ khẩn cấp."
+        });
+    }
 }
 
 /*
@@ -476,8 +536,11 @@ io.on("connection", function (socket) {
 
         if (!kiemTra.hop_le) {
             socket.emit("loi_chat", {
-                thong_bao: kiemTra.thong_bao
+            thong_bao: kiemTra.thong_bao
             });
+
+            hamGuiCanhBaoAnToanNeuCan(socket, kiemTra);
+
             return;
         }
 
@@ -517,8 +580,11 @@ io.on("connection", function (socket) {
 
         if (!kiemTra.hop_le) {
             socket.emit("loi_chat", {
-                thong_bao: kiemTra.thong_bao
+            thong_bao: kiemTra.thong_bao
             });
+
+            hamGuiCanhBaoAnToanNeuCan(socket, kiemTra);
+
             return;
         }
 
