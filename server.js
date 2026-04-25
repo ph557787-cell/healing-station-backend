@@ -557,19 +557,57 @@ io.on("connection", function (socket) {
     });
 
     /*
-     * Sự kiện đang gõ.
-     * Dùng để Android sau này hiện: "Mây nhỏ đang nhập..."
+     * Sự kiện đang gõ trong chat nhóm.
+     * Client gửi:
+     * {
+     *   ma_phong: "phong_chung",
+     *   ma_nguoi_gui: "HS-1",
+     *   ten_nguoi_gui: "Lá nhỏ"
+     * }
      */
     socket.on("dang_go", function (duLieu) {
-        const maPhong = hamChuanHoaChuoi(duLieu && duLieu.ma_phong, "");
+        const maPhong = hamChuanHoaChuoi(duLieu && duLieu.ma_phong, "phong_chung");
+        const maNguoiGui = hamChuanHoaChuoi(duLieu && duLieu.ma_nguoi_gui, "");
         const tenNguoiGui = hamChuanHoaChuoi(duLieu && duLieu.ten_nguoi_gui, "Ai đó");
 
-        if (maPhong.length > 0) {
-            socket.to(maPhong).emit("co_nguoi_dang_go", {
-                ma_phong: maPhong,
-                ten_nguoi_gui: tenNguoiGui
-            });
+        /*
+         * Gửi cho người khác trong phòng, không gửi lại chính người đang gõ.
+         */
+        socket.to(maPhong).emit("co_nguoi_dang_go", {
+            ma_phong: maPhong,
+            ma_nguoi_gui: maNguoiGui,
+            ten_nguoi_gui: tenNguoiGui,
+           thoi_gian: hamLayThoiGianHienTai()
+        });
+    });
+
+    /*
+     * Sự kiện đang gõ trong chat riêng 1-1.
+     * Client gửi:
+     * {
+     *   ma_nguoi_gui: "HS-1",
+     *   ten_nguoi_gui: "Lá nhỏ",
+     *   ma_nguoi_nhan: "HS-2"
+     * }
+     */
+    socket.on("dang_go_rieng", function (duLieu) {
+        const maNguoiGui = hamChuanHoaChuoi(duLieu && duLieu.ma_nguoi_gui, "");
+        const tenNguoiGui = hamChuanHoaChuoi(duLieu && duLieu.ten_nguoi_gui, "Ai đó");
+        const maNguoiNhan = hamChuanHoaChuoi(duLieu && duLieu.ma_nguoi_nhan, "");
+
+        if (maNguoiGui.length < 1 || maNguoiNhan.length < 1) {
+            return;
         }
+
+        /*
+         * Gửi tín hiệu đang nhập tới phòng riêng của người nhận.
+         */
+        io.to("nguoi_dung_" + maNguoiNhan).emit("co_nguoi_dang_go_rieng", {
+            ma_nguoi_gui: maNguoiGui,
+            ten_nguoi_gui: tenNguoiGui,
+            ma_nguoi_nhan: maNguoiNhan,
+            thoi_gian: hamLayThoiGianHienTai()
+        });
     });
 
     /*
